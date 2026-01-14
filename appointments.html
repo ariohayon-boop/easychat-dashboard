@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatBot Pro - פגישות</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#00D4AA',
+                        'primary-dark': '#00A080',
+                        secondary: '#0066FF',
+                        dark: '#1A1A2E',
+                        success: '#00E676',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        * { font-family: 'Heebo', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .gradient-bg { background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%); }
+        .gradient-primary { background: linear-gradient(135deg, #00D4AA 0%, #00A080 100%); }
+        .gradient-secondary { background: linear-gradient(135deg, #0066FF 0%, #0052CC 100%); }
+        .card-hover { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 30px 0 rgba(31, 38, 135, 0.1); }
+        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: skeleton-loading 1.5s infinite; }
+        @keyframes skeleton-loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .sidebar-item { transition: all 0.2s ease; }
+        .sidebar-item:hover { background: rgba(0, 212, 170, 0.1); }
+        .sidebar-item.active { background: rgba(0, 212, 170, 0.15); border-right: 3px solid #00D4AA; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast { animation: slideIn 0.3s ease; }
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    
+    <div id="toast-container" class="fixed top-4 left-4 z-50 flex flex-col gap-2"></div>
+    
+    <div class="flex min-h-screen">
+        
+        <!-- Sidebar -->
+        <aside class="sidebar w-64 bg-white shadow-lg fixed h-full z-40">
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center">
+                        <i data-lucide="message-square" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-dark">ChatBot Pro</h1>
+                        <p class="text-xs text-gray-500">ניהול בוט וואטסאפ</p>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="p-4">
+                <ul class="space-y-1">
+                    <li><a href="index.html" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:text-dark"><i data-lucide="layout-dashboard" class="w-5 h-5"></i><span>דשבורד</span></a></li>
+                    <li><a href="conversations.html" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:text-dark"><i data-lucide="message-circle" class="w-5 h-5"></i><span>שיחות</span></a></li>
+                    <li><a href="knowledge.html" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:text-dark"><i data-lucide="book-open" class="w-5 h-5"></i><span>מאגר מידע</span></a></li>
+                    <li><a href="appointments.html" class="sidebar-item active flex items-center gap-3 px-4 py-3 rounded-lg text-dark"><i data-lucide="calendar" class="w-5 h-5"></i><span>פגישות</span></a></li>
+                    <li><a href="settings.html" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:text-dark"><i data-lucide="settings" class="w-5 h-5"></i><span>הגדרות</span></a></li>
+                </ul>
+            </nav>
+            
+            <div class="absolute bottom-0 w-full p-4 border-t border-gray-100">
+                <div class="glass rounded-xl p-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-3 h-3 bg-success rounded-full pulse-dot"></div>
+                        <div>
+                            <p class="text-sm font-medium text-dark">וואטסאפ מחובר</p>
+                            <p class="text-xs text-gray-500">מצב דמו</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="flex-1 mr-64 p-8">
+            
+            <!-- Header -->
+            <header class="flex items-center justify-between mb-8 opacity-0" id="header">
+                <div>
+                    <h2 class="text-2xl font-bold text-dark">פגישות 📅</h2>
+                    <p class="text-gray-500">נהל פגישות ושיחות שנקבעו עם לקוחות</p>
+                </div>
+                <button onclick="openAddModal()" class="gradient-primary text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-shadow flex items-center gap-2">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    פגישה חדשה
+                </button>
+            </header>
+            
+            <!-- Stats -->
+            <section class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 opacity-0" id="stats-bar">
+                <div class="glass rounded-xl p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
+                        <i data-lucide="calendar" class="w-5 h-5 text-primary"></i>
+                    </div>
+                    <div>
+                        <p class="text-xl font-bold text-dark" id="stat-today">0</p>
+                        <p class="text-xs text-gray-500">היום</p>
+                    </div>
+                </div>
+                <div class="glass rounded-xl p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="calendar-days" class="w-5 h-5 text-blue-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xl font-bold text-dark" id="stat-week">0</p>
+                        <p class="text-xs text-gray-500">השבוע</p>
+                    </div>
+                </div>
+                <div class="glass rounded-xl p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="clock" class="w-5 h-5 text-yellow-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xl font-bold text-dark" id="stat-pending">0</p>
+                        <p class="text-xs text-gray-500">ממתינים</p>
+                    </div>
+                </div>
+                <div class="glass rounded-xl p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                        <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-xl font-bold text-dark" id="stat-completed">0</p>
+                        <p class="text-xs text-gray-500">הושלמו</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Appointments List -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Upcoming -->
+                <div class="glass rounded-2xl p-6 opacity-0" id="upcoming-section">
+                    <h3 class="text-lg font-bold text-dark mb-4 flex items-center gap-2">
+                        <i data-lucide="calendar-clock" class="w-5 h-5 text-primary"></i>
+                        פגישות קרובות
+                    </h3>
+                    <div class="space-y-3" id="upcoming-list">
+                        <div class="skeleton h-20 rounded-xl"></div>
+                        <div class="skeleton h-20 rounded-xl"></div>
+                    </div>
+                    <div class="hidden text-center py-8" id="upcoming-empty">
+                        <i data-lucide="calendar-x" class="w-12 h-12 text-gray-300 mx-auto mb-2"></i>
+                        <p class="text-gray-500">אין פגישות קרובות</p>
+                    </div>
+                </div>
+                
+                <!-- Past -->
+                <div class="glass rounded-2xl p-6 opacity-0" id="past-section">
+                    <h3 class="text-lg font-bold text-dark mb-4 flex items-center gap-2">
+                        <i data-lucide="history" class="w-5 h-5 text-gray-500"></i>
+                        פגישות שעברו
+                    </h3>
+                    <div class="space-y-3" id="past-list">
+                        <div class="skeleton h-20 rounded-xl"></div>
+                    </div>
+                    <div class="hidden text-center py-8" id="past-empty">
+                        <i data-lucide="inbox" class="w-12 h-12 text-gray-300 mx-auto mb-2"></i>
+                        <p class="text-gray-500">אין היסטוריה</p>
+                    </div>
+                </div>
+                
+            </section>
+            
+        </main>
+    </div>
+    
+    <script>
+        // ============================================
+        // State
+        // ============================================
+        const BUSINESS_ID = getBusinessId();
+        let appointments = [];
+        
+        const statusLabels = {
+            pending: { text: 'ממתין', class: 'bg-yellow-100 text-yellow-800' },
+            confirmed: { text: 'מאושר', class: 'bg-green-100 text-green-800' },
+            cancelled: { text: 'בוטל', class: 'bg-red-100 text-red-800' },
+            completed: { text: 'הושלם', class: 'bg-blue-100 text-blue-800' },
+            no_show: { text: 'לא הגיע', class: 'bg-gray-100 text-gray-800' }
+        };
+        
+        // ============================================
+        // Initialize
+        // ============================================
+        lucide.createIcons();
+        
+        gsap.set('#header', { opacity: 0, y: -20 });
+        gsap.set('#stats-bar', { opacity: 0, y: 20 });
+        gsap.set('#upcoming-section', { opacity: 0, y: 20 });
+        gsap.set('#past-section', { opacity: 0, y: 20 });
+        
+        function initAnimations() {
+            gsap.to('#header', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' });
+            gsap.to('#stats-bar', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out', delay: 0.2 });
+            gsap.to('#upcoming-section', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out', delay: 0.3 });
+            gsap.to('#past-section', { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out', delay: 0.4 });
+        }
+        
+        // ============================================
+        // Load Data
+        // ============================================
+        async function loadAppointments() {
+            if (isDemoMode()) {
+                appointments = [...DEMO_DATA.appointments];
+            } else {
+                try {
+                    const db = getSupabase();
+                    const { data, error } = await db
+                        .from('appointments')
+                        .select('*')
+                        .eq('business_id', BUSINESS_ID)
+                        .order('scheduled_time', { ascending: true });
+                    
+                    if (error) throw error;
+                    appointments = data || [];
+                } catch (error) {
+                    console.error('Error:', error);
+                    appointments = [...DEMO_DATA.appointments];
+                }
+            }
+            
+            renderAppointments();
+            updateStats();
+        }
+        
+        // ============================================
+        // Render
+        // ============================================
+        function renderAppointments() {
+            const now = new Date();
+            const upcoming = appointments.filter(a => new Date(a.scheduled_time) > now && a.status !== 'cancelled');
+            const past = appointments.filter(a => new Date(a.scheduled_time) <= now || a.status === 'cancelled');
+            
+            renderList('upcoming', upcoming);
+            renderList('past', past);
+        }
+        
+        function renderList(type, items) {
+            const list = document.getElementById(`${type}-list`);
+            const empty = document.getElementById(`${type}-empty`);
+            
+            list.querySelectorAll('.skeleton').forEach(el => el.remove());
+            list.querySelectorAll('.appointment-card').forEach(el => el.remove());
+            
+            if (items.length === 0) {
+                empty.classList.remove('hidden');
+                return;
+            }
+            
+            empty.classList.add('hidden');
+            
+            items.forEach((apt, index) => {
+                const date = new Date(apt.scheduled_time);
+                const displayName = apt.customer_name || formatPhone(apt.customer_phone);
+                const status = statusLabels[apt.status] || statusLabels.pending;
+                
+                const card = document.createElement('div');
+                card.className = 'appointment-card card-hover bg-white rounded-xl p-4 border border-gray-100';
+                card.style.opacity = '0';
+                card.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 gradient-secondary rounded-xl flex flex-col items-center justify-center text-white">
+                            <span class="text-lg font-bold">${date.getDate()}</span>
+                            <span class="text-xs">${date.toLocaleDateString('he-IL', { month: 'short' })}</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h4 class="font-medium text-dark">${displayName}</h4>
+                                <span class="${status.class} text-xs px-2 py-0.5 rounded-full">${status.text}</span>
+                            </div>
+                            <p class="text-sm text-gray-500">
+                                <i data-lucide="clock" class="w-3 h-3 inline"></i>
+                                ${date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                                · ${apt.duration_minutes} דקות
+                            </p>
+                            ${apt.notes ? `<p class="text-xs text-gray-400 mt-1">${apt.notes}</p>` : ''}
+                        </div>
+                        <div class="flex gap-2">
+                            ${type === 'upcoming' ? `
+                                <button onclick="updateStatus('${apt.id}', 'confirmed')" class="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="אשר">
+                                    <i data-lucide="check" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="updateStatus('${apt.id}', 'cancelled')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="בטל">
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                list.appendChild(card);
+                gsap.to(card, { opacity: 1, duration: 0.3, delay: index * 0.05, ease: 'power2.out' });
+            });
+            
+            lucide.createIcons();
+        }
+        
+        function updateStats() {
+            const now = new Date();
+            const today = now.toDateString();
+            const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            
+            const todayCount = appointments.filter(a => new Date(a.scheduled_time).toDateString() === today).length;
+            const weekCount = appointments.filter(a => {
+                const d = new Date(a.scheduled_time);
+                return d > now && d < weekFromNow;
+            }).length;
+            const pendingCount = appointments.filter(a => a.status === 'pending').length;
+            const completedCount = appointments.filter(a => a.status === 'completed').length;
+            
+            document.getElementById('stat-today').textContent = todayCount;
+            document.getElementById('stat-week').textContent = weekCount;
+            document.getElementById('stat-pending').textContent = pendingCount;
+            document.getElementById('stat-completed').textContent = completedCount;
+        }
+        
+        // ============================================
+        // Actions
+        // ============================================
+        async function updateStatus(id, status) {
+            const apt = appointments.find(a => a.id === id);
+            if (!apt) return;
+            
+            if (!isDemoMode()) {
+                try {
+                    const db = getSupabase();
+                    const { error } = await db.from('appointments').update({ status }).eq('id', id);
+                    if (error) throw error;
+                } catch (error) {
+                    showToast('שגיאה בעדכון', 'error');
+                    return;
+                }
+            }
+            
+            apt.status = status;
+            renderAppointments();
+            updateStats();
+            showToast(status === 'confirmed' ? 'הפגישה אושרה' : 'הפגישה בוטלה');
+        }
+        
+        function openAddModal() {
+            showToast('במצב דמו - לא ניתן להוסיף פגישות', 'warning');
+        }
+        
+        // ============================================
+        // Init
+        // ============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            initAnimations();
+            loadAppointments();
+        });
+    </script>
+    
+</body>
+</html>
