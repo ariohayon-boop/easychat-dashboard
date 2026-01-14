@@ -10,7 +10,96 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/config.js"></script>
+    <script>
+        // Supabase Config (inline)
+        const SUPABASE_URL = 'https://tqxrahpbidlctyttpffc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxeHJhaHBiaWRsY3R5dHRwZmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4NTk3MzQsImV4cCI6MjA4MzQzNTczNH0.tmh9_GzWJhIcRoS3L6gpCX95_eZrkIR7hy3gOl9Qd2s';
+        let supabaseClient = null;
+        
+        function getSupabase() {
+            if (!supabaseClient) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+            return supabaseClient;
+        }
+        function getBusinessId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('business_id') || localStorage.getItem('business_id') || 'demo-business';
+        }
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const bgColor = type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-amber-500';
+            const toast = document.createElement('div');
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-lg`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        const CATEGORY_LABELS = {
+            pricing: '💰 מחירים',
+            services: '🛠️ שירותים',
+            hours: '🕐 שעות פעילות',
+            location: '📍 מיקום',
+            terms: '📋 תנאים',
+            faq: '❓ שאלות נפוצות',
+            other: '📁 אחר'
+        };
+        
+        async function autoCategorizeBusiness(text) {
+            const items = [];
+            const lines = text.split('\n').filter(l => l.trim());
+            let currentCategory = 'other';
+            let currentQuestion = '';
+            let currentAnswer = '';
+            
+            const categoryKeywords = {
+                pricing: ['מחיר', 'עלות', 'תעריף', 'כמה עולה', '₪', 'שקל'],
+                hours: ['שעות', 'פתוח', 'סגור', 'ימים', 'פעילות'],
+                location: ['מיקום', 'כתובת', 'איפה', 'מרינה', 'רחוב'],
+                services: ['שירות', 'מציעים', 'כולל', 'אפשרויות'],
+                terms: ['תנאים', 'ביטול', 'החזר', 'מדיניות']
+            };
+            
+            for (const line of lines) {
+                const lowerLine = line.toLowerCase();
+                let foundCategory = null;
+                for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+                    if (keywords.some(k => lowerLine.includes(k))) {
+                        foundCategory = cat;
+                        break;
+                    }
+                }
+                
+                if (foundCategory && line.endsWith(':')) {
+                    if (currentQuestion && currentAnswer) {
+                        items.push({ category: currentCategory, question: currentQuestion, answer: currentAnswer.trim(), keywords: [], is_active: true, priority: 5 });
+                    }
+                    currentCategory = foundCategory;
+                    currentQuestion = '';
+                    currentAnswer = '';
+                } else if (line.includes('-') || line.includes(':')) {
+                    if (currentQuestion && currentAnswer) {
+                        items.push({ category: currentCategory, question: currentQuestion, answer: currentAnswer.trim(), keywords: [], is_active: true, priority: 5 });
+                    }
+                    const parts = line.split(/[-:]/).map(p => p.trim());
+                    if (parts.length >= 2) {
+                        currentQuestion = parts[0] + '?';
+                        currentAnswer = parts.slice(1).join(' ');
+                    }
+                } else if (currentQuestion) {
+                    currentAnswer += ' ' + line;
+                }
+            }
+            
+            if (currentQuestion && currentAnswer) {
+                items.push({ category: currentCategory, question: currentQuestion, answer: currentAnswer.trim(), keywords: [], is_active: true, priority: 5 });
+            }
+            
+            return items;
+        }
+    </script>
     <script>
         tailwind.config = {
             theme: { extend: { colors: { primary: '#6366f1', 'primary-dark': '#4f46e5', secondary: '#8b5cf6', dark: '#0f172a', success: '#10b981', warning: '#f59e0b', danger: '#ef4444' } } }
@@ -35,7 +124,7 @@
         .input-modern { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; color: white; transition: all 0.3s ease; }
         .input-modern:focus { background: rgba(255,255,255,0.08); border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); outline: none; }
         .input-modern::placeholder { color: rgba(255,255,255,0.4); }
-        .input-modern option { background: #1e293b; color: white; padding: 12px; }
+        .input-modern option { background: #1e293b; color: white; }
         .badge { padding: 6px 14px; border-radius: 30px; font-size: 12px; font-weight: 600; }
         .badge-pricing { background: rgba(16, 185, 129, 0.15); color: #34d399; }
         .badge-services { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
@@ -49,16 +138,15 @@
         .modal-dark { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.1); }
         @keyframes modalIn { from { opacity: 0; transform: scale(0.9) translateY(40px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         .stat-card { background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%); }
-        .pulse-glow { animation: pulseGlow 2s infinite; }
-        @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.5); } 50% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.8); } }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
         ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 3px; }
         .toggle-modern { position: relative; width: 56px; height: 28px; background: rgba(255,255,255,0.1); border-radius: 14px; cursor: pointer; transition: all 0.3s ease; }
         .toggle-modern.active { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-        .toggle-modern::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; background: white; border-radius: 50%; transition: transform 0.3s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .toggle-modern::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; background: white; border-radius: 50%; transition: transform 0.3s ease; }
         .toggle-modern.active::after { transform: translateX(28px); }
         select.input-modern { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: left 16px center; background-size: 16px; padding-left: 48px; }
+        .setup-notice { background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%); border: 1px solid rgba(245, 158, 11, 0.3); }
     </style>
 </head>
 <body>
@@ -80,7 +168,7 @@
             </div>
             
             <nav class="p-4 space-y-2">
-                <a href="conversations.html" class="sidebar-item flex items-center gap-4 px-5 py-4 text-gray-300 hover:text-white">
+                <a href="index.html" class="sidebar-item flex items-center gap-4 px-5 py-4 text-gray-300 hover:text-white">
                     <i data-lucide="message-circle" class="w-5 h-5"></i>
                     <span class="font-medium">שיחות</span>
                 </a>
@@ -97,10 +185,10 @@
             <div class="absolute bottom-0 w-full p-4 border-t border-white/5">
                 <div class="glass rounded-2xl p-4">
                     <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 bg-emerald-500 rounded-full pulse-glow"></div>
+                        <div class="w-3 h-3 bg-amber-500 rounded-full"></div>
                         <div>
-                            <p class="text-sm font-medium text-white">בוט פעיל</p>
-                            <p class="text-xs text-gray-400">WhatsApp מחובר</p>
+                            <p class="text-sm font-medium text-white">מצב דמו</p>
+                            <p class="text-xs text-gray-400">צריך להגדיר עסק</p>
                         </div>
                     </div>
                 </div>
@@ -110,7 +198,7 @@
         <!-- Main Content -->
         <main class="flex-1 mr-72 p-8">
             <!-- Header -->
-            <header class="flex items-center justify-between mb-8" id="header">
+            <header class="flex items-center justify-between mb-8">
                 <div>
                     <h2 class="text-3xl font-bold text-white mb-2">מאגר מידע 🧠</h2>
                     <p class="text-gray-400">למד את הבוט לענות על שאלות הלקוחות שלך</p>
@@ -127,8 +215,21 @@
                 </div>
             </header>
             
+            <!-- Setup Notice -->
+            <div id="setup-notice" class="setup-notice rounded-2xl p-6 mb-8 hidden">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-400"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-amber-400 mb-2">נדרשת הגדרה ראשונית</h3>
+                        <p class="text-gray-300">טבלת knowledge_base עדיין לא הוגדרה במערכת. צור את הטבלה ב-Supabase כדי להתחיל להוסיף שאלות.</p>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Stats -->
-            <section class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="stats-bar">
+            <section class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                 <div class="stat-card card-modern p-5 flex items-center gap-4">
                     <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center">
                         <i data-lucide="database" class="w-7 h-7 text-indigo-400"></i>
@@ -168,7 +269,7 @@
             </section>
             
             <!-- Filters -->
-            <section class="glass rounded-3xl p-5 mb-8" id="filters-section">
+            <section class="glass rounded-3xl p-5 mb-8">
                 <div class="flex flex-wrap items-center gap-4">
                     <div class="flex-1 min-w-64 relative">
                         <i data-lucide="search" class="w-5 h-5 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2"></i>
@@ -193,21 +294,10 @@
             </section>
             
             <!-- Knowledge Grid -->
-            <section class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="knowledge-grid">
-                <div class="card-modern p-6 animate-pulse">
-                    <div class="h-6 w-24 bg-white/10 rounded-full mb-4"></div>
-                    <div class="h-5 w-full bg-white/10 rounded mb-3"></div>
-                    <div class="h-4 w-3/4 bg-white/5 rounded"></div>
-                </div>
-                <div class="card-modern p-6 animate-pulse">
-                    <div class="h-6 w-24 bg-white/10 rounded-full mb-4"></div>
-                    <div class="h-5 w-full bg-white/10 rounded mb-3"></div>
-                    <div class="h-4 w-3/4 bg-white/5 rounded"></div>
-                </div>
-            </section>
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-5" id="knowledge-grid"></section>
             
             <!-- Empty State -->
-            <div class="hidden text-center py-20" id="empty-state">
+            <div class="text-center py-20" id="empty-state">
                 <div class="w-32 h-32 mx-auto mb-8 rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center">
                     <i data-lucide="brain" class="w-16 h-16 text-indigo-400"></i>
                 </div>
@@ -227,15 +317,13 @@
         </main>
     </div>
     
-    <!-- Add/Edit Modal - DARK THEME -->
+    <!-- Add/Edit Modal -->
     <div id="modal" class="fixed inset-0 z-50 hidden">
         <div class="modal-overlay absolute inset-0" onclick="closeModal()"></div>
         <div class="modal-content modal-dark absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between p-6 border-b border-white/10">
                 <h3 class="text-xl font-bold text-white" id="modal-title">הוסף שאלה חדשה</h3>
-                <button onclick="closeModal()" class="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                    <i data-lucide="x" class="w-5 h-5 text-gray-400"></i>
-                </button>
+                <button onclick="closeModal()" class="p-2 hover:bg-white/10 rounded-xl"><i data-lucide="x" class="w-5 h-5 text-gray-400"></i></button>
             </div>
             <form id="knowledge-form" class="p-6 space-y-5">
                 <input type="hidden" id="edit-id">
@@ -273,7 +361,7 @@
                 </div>
             </form>
             <div class="flex items-center justify-end gap-3 p-6 border-t border-white/10">
-                <button onclick="closeModal()" class="px-6 py-3 text-gray-400 hover:bg-white/10 rounded-2xl transition-colors font-medium">ביטול</button>
+                <button onclick="closeModal()" class="px-6 py-3 text-gray-400 hover:bg-white/10 rounded-2xl font-medium">ביטול</button>
                 <button onclick="saveKnowledge()" class="btn-modern text-white px-8 py-3 flex items-center gap-2">
                     <i data-lucide="save" class="w-4 h-4"></i>
                     <span id="save-btn-text">שמור</span>
@@ -282,33 +370,21 @@
         </div>
     </div>
     
-    <!-- Bulk Import Modal - DARK THEME -->
+    <!-- Bulk Import Modal -->
     <div id="bulk-modal" class="fixed inset-0 z-50 hidden">
         <div class="modal-overlay absolute inset-0" onclick="closeBulkModal()"></div>
         <div class="modal-content modal-dark absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between p-6 border-b border-white/10">
                 <div>
                     <h3 class="text-xl font-bold text-white">ייבוא מהיר ✨</h3>
-                    <p class="text-sm text-gray-400 mt-1">הדבק טקסט עם מידע על העסק והמערכת תסדר אותו אוטומטית</p>
+                    <p class="text-sm text-gray-400 mt-1">הדבק טקסט עם מידע על העסק</p>
                 </div>
-                <button onclick="closeBulkModal()" class="p-2 hover:bg-white/10 rounded-xl transition-colors">
-                    <i data-lucide="x" class="w-5 h-5 text-gray-400"></i>
-                </button>
+                <button onclick="closeBulkModal()" class="p-2 hover:bg-white/10 rounded-xl"><i data-lucide="x" class="w-5 h-5 text-gray-400"></i></button>
             </div>
             <div class="p-6 space-y-5">
                 <div>
                     <label class="block text-sm font-semibold text-gray-300 mb-2">הדבק את כל המידע על העסק</label>
-                    <textarea id="bulk-text" rows="12" placeholder="לדוגמה:
-מחירים:
-יאכטה קטנה עד 8 אנשים - 3,500-4,500 ש״ח
-יאכטה בינונית עד 15 אנשים - 5,000-6,500 ש״ח
-
-שעות פעילות:
-ימים א-ה: 09:00-18:00
-יום ו: 09:00-14:00
-
-מיקום:
-מרינה הרצליה, רציף 3" class="input-modern w-full px-5 py-4 resize-none"></textarea>
+                    <textarea id="bulk-text" rows="10" placeholder="מחירים:&#10;שירות א - 100 ש״ח&#10;שירות ב - 200 ש״ח" class="input-modern w-full px-5 py-4 resize-none"></textarea>
                 </div>
                 <div id="bulk-preview" class="hidden">
                     <label class="block text-sm font-semibold text-gray-300 mb-3">תצוגה מקדימה</label>
@@ -316,7 +392,7 @@
                 </div>
             </div>
             <div class="flex items-center justify-end gap-3 p-6 border-t border-white/10">
-                <button onclick="closeBulkModal()" class="px-6 py-3 text-gray-400 hover:bg-white/10 rounded-2xl transition-colors font-medium">ביטול</button>
+                <button onclick="closeBulkModal()" class="px-6 py-3 text-gray-400 hover:bg-white/10 rounded-2xl font-medium">ביטול</button>
                 <button onclick="previewBulk()" id="preview-btn" class="btn-outline px-6 py-3 flex items-center gap-2">
                     <i data-lucide="eye" class="w-4 h-4"></i>
                     תצוגה מקדימה
@@ -329,7 +405,7 @@
         </div>
     </div>
     
-    <!-- Delete Modal - DARK THEME -->
+    <!-- Delete Modal -->
     <div id="delete-modal" class="fixed inset-0 z-50 hidden">
         <div class="modal-overlay absolute inset-0" onclick="closeDeleteModal()"></div>
         <div class="modal-content modal-dark absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-3xl shadow-2xl p-8 text-center">
@@ -339,8 +415,8 @@
             <h3 class="text-xl font-bold text-white mb-2">למחוק את השאלה?</h3>
             <p class="text-gray-400 mb-8">הפעולה הזו לא ניתנת לביטול</p>
             <div class="flex items-center justify-center gap-4">
-                <button onclick="closeDeleteModal()" class="px-8 py-3 text-gray-400 hover:bg-white/10 rounded-2xl transition-colors font-medium">ביטול</button>
-                <button onclick="confirmDelete()" class="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-2xl font-semibold transition-all">כן, מחק</button>
+                <button onclick="closeDeleteModal()" class="px-8 py-3 text-gray-400 hover:bg-white/10 rounded-2xl font-medium">ביטול</button>
+                <button onclick="confirmDelete()" class="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-2xl font-semibold">כן, מחק</button>
             </div>
         </div>
     </div>
@@ -351,6 +427,7 @@ let knowledgeItems = [];
 let deleteItemId = null;
 let isEditMode = false;
 let bulkItems = [];
+let tableExists = true;
 
 lucide.createIcons();
 
@@ -358,13 +435,22 @@ async function loadKnowledge() {
     try {
         const db = getSupabase();
         const { data, error } = await db.from('knowledge_base').select('*').eq('business_id', BUSINESS_ID).order('priority', { ascending: false });
-        if (error) throw error;
+        
+        if (error) {
+            console.log('Table error:', error);
+            tableExists = false;
+            document.getElementById('setup-notice').classList.remove('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+            return;
+        }
+        
         knowledgeItems = data || [];
         renderKnowledge();
         updateStats();
     } catch (error) {
         console.error('Error:', error);
-        showToast('שגיאה בטעינת המידע', 'error');
+        tableExists = false;
+        document.getElementById('setup-notice').classList.remove('hidden');
     }
 }
 
@@ -382,19 +468,16 @@ function renderKnowledge(items = knowledgeItems) {
     items.forEach((item, index) => {
         const card = document.createElement('div');
         card.className = `card-modern p-6 ${!item.is_active ? 'opacity-50' : ''}`;
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
         
-        const categoryClass = `badge-${item.category}`;
         const categoryLabel = CATEGORY_LABELS[item.category] || item.category;
         
         card.innerHTML = `
             <div class="flex items-start justify-between mb-4">
-                <span class="badge ${categoryClass}">${categoryLabel}</span>
+                <span class="badge badge-${item.category}">${categoryLabel}</span>
                 <div class="flex items-center gap-2">
                     ${!item.is_active ? '<span class="text-xs text-gray-400 bg-white/10 px-3 py-1 rounded-full">מושבת</span>' : ''}
                     <div class="relative">
-                        <button onclick="toggleMenu('${item.id}')" class="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                        <button onclick="toggleMenu('${item.id}')" class="p-2 hover:bg-white/10 rounded-xl">
                             <i data-lucide="more-vertical" class="w-4 h-4 text-gray-400"></i>
                         </button>
                         <div id="menu-${item.id}" class="hidden absolute left-0 top-full mt-2 modal-dark rounded-2xl shadow-xl py-2 min-w-36 z-10">
@@ -413,21 +496,9 @@ function renderKnowledge(items = knowledgeItems) {
             </div>
             <h4 class="font-bold text-white text-lg mb-3">${item.question}</h4>
             <p class="text-gray-400 text-sm whitespace-pre-line line-clamp-3">${item.answer}</p>
-            ${item.keywords && item.keywords.length > 0 ? `
-                <div class="flex flex-wrap gap-2 mt-4">
-                    ${item.keywords.slice(0, 4).map(k => `<span class="text-xs bg-white/5 text-gray-300 px-3 py-1 rounded-full">${k}</span>`).join('')}
-                    ${item.keywords.length > 4 ? `<span class="text-xs text-gray-500">+${item.keywords.length - 4}</span>` : ''}
-                </div>
-            ` : ''}
         `;
         
         grid.appendChild(card);
-        
-        setTimeout(() => {
-            card.style.transition = 'all 0.4s ease';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, index * 50);
     });
     
     lucide.createIcons();
@@ -498,7 +569,6 @@ function deleteItem(id) {
 
 async function confirmDelete() {
     if (!deleteItemId) return;
-    
     try {
         const db = getSupabase();
         await db.from('knowledge_base').delete().eq('id', deleteItemId);
@@ -519,13 +589,11 @@ function closeDeleteModal() {
 
 function openModal() {
     document.getElementById('modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
     lucide.createIcons();
 }
 
 function closeModal() {
     document.getElementById('modal').classList.add('hidden');
-    document.body.style.overflow = '';
     resetForm();
 }
 
@@ -543,6 +611,11 @@ function toggleActive() {
 }
 
 async function saveKnowledge() {
+    if (!tableExists) {
+        showToast('טבלת knowledge_base לא קיימת. צור אותה ב-Supabase.', 'error');
+        return;
+    }
+    
     const category = document.getElementById('form-category').value;
     const question = document.getElementById('form-question').value.trim();
     const answer = document.getElementById('form-answer').value.trim();
@@ -584,13 +657,11 @@ async function saveKnowledge() {
 
 function openBulkModal() {
     document.getElementById('bulk-modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
     lucide.createIcons();
 }
 
 function closeBulkModal() {
     document.getElementById('bulk-modal').classList.add('hidden');
-    document.body.style.overflow = '';
     document.getElementById('bulk-text').value = '';
     document.getElementById('bulk-preview').classList.add('hidden');
     document.getElementById('preview-btn').classList.remove('hidden');
@@ -613,12 +684,12 @@ async function previewBulk() {
     }
     
     const previewContent = document.getElementById('bulk-preview-content');
-    previewContent.innerHTML = bulkItems.map((item, i) => `
+    previewContent.innerHTML = bulkItems.map(item => `
         <div class="flex items-start gap-3 p-4 bg-white/5 rounded-xl">
             <span class="badge badge-${item.category} text-xs">${CATEGORY_LABELS[item.category] || item.category}</span>
             <div class="flex-1">
                 <p class="font-medium text-white text-sm">${item.question}</p>
-                <p class="text-gray-400 text-xs mt-1 line-clamp-2">${item.answer}</p>
+                <p class="text-gray-400 text-xs mt-1">${item.answer}</p>
             </div>
         </div>
     `).join('');
@@ -631,6 +702,10 @@ async function previewBulk() {
 }
 
 async function importBulk() {
+    if (!tableExists) {
+        showToast('טבלת knowledge_base לא קיימת', 'error');
+        return;
+    }
     if (bulkItems.length === 0) return;
     
     try {
@@ -665,8 +740,7 @@ function filterKnowledge() {
     if (search) {
         filtered = filtered.filter(i => 
             i.question.toLowerCase().includes(search) || 
-            i.answer.toLowerCase().includes(search) ||
-            (i.keywords || []).some(k => k.toLowerCase().includes(search))
+            i.answer.toLowerCase().includes(search)
         );
     }
     if (category) filtered = filtered.filter(i => i.category === category);
