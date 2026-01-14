@@ -11,9 +11,9 @@
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // Supabase Config (inline)
-        const SUPABASE_URL = 'https://tqxrahpbidlctyttpffc.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxeHJhaHBiaWRsY3R5dHRwZmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4NTk3MzQsImV4cCI6MjA4MzQzNTczNH0.tmh9_GzWJhIcRoS3L6gpCX95_eZrkIR7hy3gOl9Qd2s';
+        // Supabase Config - chat-bots project
+        const SUPABASE_URL = 'https://fqfdetxvfdgaxbtwrulj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZmRldHh2ZmRnYXhidHdydWxqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3MTcxNTEsImV4cCI6MjA4MzI5MzE1MX0.foTliw-WXvPhtlhYqA_yXe0TDoU4LWfvxDhOSSMLMHA';
         let supabaseClient = null;
         
         function getSupabase() {
@@ -24,7 +24,7 @@
         }
         function getBusinessId() {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('business_id') || localStorage.getItem('business_id') || 'demo-business';
+            return urlParams.get('business_id') || localStorage.getItem('business_id') || 'f6dcf952-6e4a-4f74-8de7-ae9818f73fd0';
         }
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -110,10 +110,10 @@
             <div class="absolute bottom-0 w-full p-4 border-t border-white/5">
                 <div class="glass rounded-2xl p-4">
                     <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 bg-amber-500 rounded-full"></div>
+                        <div class="w-3 h-3 bg-emerald-500 rounded-full pulse-glow"></div>
                         <div>
-                            <p class="text-sm font-medium text-white">מצב דמו</p>
-                            <p class="text-xs text-gray-400">צריך להגדיר עסק</p>
+                            <p class="text-sm font-medium text-white">בוט פעיל</p>
+                            <p class="text-xs text-gray-400">מחובר ל-Supabase</p>
                         </div>
                     </div>
                 </div>
@@ -136,7 +136,7 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-bold text-amber-400 mb-2">נדרשת הגדרה ראשונית</h3>
-                        <p class="text-gray-300 mb-4">טבלת העסקים עדיין לא הוגדרה במערכת. מלא את הפרטים למטה ולחץ "שמור" כדי ליצור את העסק שלך.</p>
+                        <p class="text-gray-300 mb-4">העסק לא נמצא במערכת. מלא את הפרטים למטה ולחץ "שמור" כדי ליצור את העסק שלך.</p>
                     </div>
                 </div>
             </div>
@@ -241,7 +241,7 @@
                             WhatsApp
                         </h3>
                         
-                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-4">
+                        <div id="whatsapp-status" class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-4">
                             <div class="flex items-center gap-3">
                                 <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
                                     <i data-lucide="wifi-off" class="w-6 h-6 text-amber-400"></i>
@@ -319,7 +319,6 @@ async function loadSettings() {
             .single();
         
         if (error) {
-            // Table doesn't exist or no data - show setup notice
             console.log('Business not found, showing setup mode');
             isNewBusiness = true;
             document.getElementById('setup-notice').classList.remove('hidden');
@@ -333,7 +332,6 @@ async function loadSettings() {
         loadStats();
     } catch (error) {
         console.error('Error:', error);
-        // Show setup mode on any error
         isNewBusiness = true;
         document.getElementById('setup-notice').classList.remove('hidden');
         renderWorkingHours();
@@ -353,6 +351,23 @@ function populateForm() {
     document.getElementById('no-answer-message').value = settings.no_answer_message || '';
     document.getElementById('out-of-hours-message').value = settings.out_of_hours_message || '';
     document.getElementById('connected-number').textContent = settings.twilio_phone_number ? `+${settings.twilio_phone_number}` : formatPhone(settings.whatsapp_number);
+    
+    // Update WhatsApp status if connected
+    if (settings.twilio_phone_number || settings.whatsapp_number) {
+        document.getElementById('whatsapp-status').className = 'bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-4';
+        document.getElementById('whatsapp-status').innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center">
+                    <i data-lucide="check" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <p class="font-semibold text-emerald-400">מחובר</p>
+                    <p class="text-sm text-gray-400">${settings.twilio_phone_number ? `+${settings.twilio_phone_number}` : settings.whatsapp_number}</p>
+                </div>
+            </div>
+        `;
+        lucide.createIcons();
+    }
 }
 
 function renderWorkingHours() {
@@ -395,8 +410,6 @@ function toggleDay(day, element) {
 async function loadStats() {
     try {
         const db = getSupabase();
-        
-        // Try to load stats, ignore errors if tables don't exist
         let convCount = 0, answeredCount = 0, knowledgeCount = 0;
         
         try {
@@ -462,7 +475,6 @@ async function saveSettings() {
         let error;
         
         if (isNewBusiness) {
-            // Try to insert new business
             const result = await db.from('businesses').insert([updatedSettings]);
             error = result.error;
             if (!error) {
@@ -470,14 +482,13 @@ async function saveSettings() {
                 document.getElementById('setup-notice').classList.add('hidden');
             }
         } else {
-            // Update existing
             const result = await db.from('businesses').update(updatedSettings).eq('id', BUSINESS_ID);
             error = result.error;
         }
         
         if (error) {
             console.error('Save error:', error);
-            showToast('טבלת businesses לא קיימת. צריך ליצור אותה ב-Supabase.', 'error');
+            showToast('שגיאה בשמירה: ' + error.message, 'error');
             return;
         }
         
