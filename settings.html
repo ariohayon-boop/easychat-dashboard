@@ -10,7 +10,34 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/config.js"></script>
+    <script>
+        // Supabase Config (inline)
+        const SUPABASE_URL = 'https://tqxrahpbidlctyttpffc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxeHJhaHBiaWRsY3R5dHRwZmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4NTk3MzQsImV4cCI6MjA4MzQzNTczNH0.tmh9_GzWJhIcRoS3L6gpCX95_eZrkIR7hy3gOl9Qd2s';
+        let supabaseClient = null;
+        
+        function getSupabase() {
+            if (!supabaseClient) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+            return supabaseClient;
+        }
+        function getBusinessId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('business_id') || localStorage.getItem('business_id') || 'demo-business';
+        }
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const bgColor = type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-amber-500';
+            const toast = document.createElement('div');
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-lg`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        function formatPhone(phone) { return phone || 'לא מחובר'; }
+    </script>
     <script>
         tailwind.config = {
             theme: { extend: { colors: { primary: '#6366f1', 'primary-dark': '#4f46e5', secondary: '#8b5cf6', dark: '#0f172a', success: '#10b981', warning: '#f59e0b', danger: '#ef4444' } } }
@@ -44,6 +71,7 @@
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
         ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 3px; }
         .save-indicator { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 100; }
+        .setup-notice { background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%); border: 1px solid rgba(245, 158, 11, 0.3); }
     </style>
 </head>
 <body>
@@ -65,7 +93,7 @@
             </div>
             
             <nav class="p-4 space-y-2">
-                <a href="conversations.html" class="sidebar-item flex items-center gap-4 px-5 py-4 text-gray-300 hover:text-white">
+                <a href="index.html" class="sidebar-item flex items-center gap-4 px-5 py-4 text-gray-300 hover:text-white">
                     <i data-lucide="message-circle" class="w-5 h-5"></i>
                     <span class="font-medium">שיחות</span>
                 </a>
@@ -82,10 +110,10 @@
             <div class="absolute bottom-0 w-full p-4 border-t border-white/5">
                 <div class="glass rounded-2xl p-4">
                     <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 bg-emerald-500 rounded-full pulse-glow"></div>
+                        <div class="w-3 h-3 bg-amber-500 rounded-full"></div>
                         <div>
-                            <p class="text-sm font-medium text-white">בוט פעיל</p>
-                            <p class="text-xs text-gray-400">WhatsApp מחובר</p>
+                            <p class="text-sm font-medium text-white">מצב דמו</p>
+                            <p class="text-xs text-gray-400">צריך להגדיר עסק</p>
                         </div>
                     </div>
                 </div>
@@ -99,6 +127,19 @@
                 <h2 class="text-3xl font-bold text-white mb-2">הגדרות ⚙️</h2>
                 <p class="text-gray-400">נהל את הגדרות העסק והבוט</p>
             </header>
+            
+            <!-- Setup Notice -->
+            <div id="setup-notice" class="setup-notice rounded-2xl p-6 mb-8 hidden">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-400"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-amber-400 mb-2">נדרשת הגדרה ראשונית</h3>
+                        <p class="text-gray-300 mb-4">טבלת העסקים עדיין לא הוגדרה במערכת. מלא את הפרטים למטה ולחץ "שמור" כדי ליצור את העסק שלך.</p>
+                    </div>
+                </div>
+            </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Main Settings -->
@@ -200,14 +241,14 @@
                             WhatsApp
                         </h3>
                         
-                        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-4">
+                        <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center">
-                                    <i data-lucide="check" class="w-6 h-6 text-white"></i>
+                                <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                                    <i data-lucide="wifi-off" class="w-6 h-6 text-amber-400"></i>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-emerald-400">מחובר</p>
-                                    <p class="text-sm text-gray-400" id="connected-number">טוען...</p>
+                                    <p class="font-semibold text-amber-400">לא מחובר</p>
+                                    <p class="text-sm text-gray-400" id="connected-number">ממתין להגדרה</p>
                                 </div>
                             </div>
                         </div>
@@ -243,7 +284,7 @@
     </div>
     
     <!-- Floating Save Button -->
-    <div class="save-indicator hidden" id="save-indicator">
+    <div class="save-indicator" id="save-indicator">
         <button onclick="saveSettings()" class="btn-modern text-white px-8 py-4 flex items-center gap-3 shadow-2xl">
             <i data-lucide="save" class="w-5 h-5"></i>
             שמור שינויים
@@ -264,6 +305,7 @@ const dayNames = {
 
 let settings = null;
 let hasChanges = false;
+let isNewBusiness = false;
 
 lucide.createIcons();
 
@@ -276,15 +318,25 @@ async function loadSettings() {
             .eq('id', BUSINESS_ID)
             .single();
         
-        if (error) throw error;
-        settings = data;
+        if (error) {
+            // Table doesn't exist or no data - show setup notice
+            console.log('Business not found, showing setup mode');
+            isNewBusiness = true;
+            document.getElementById('setup-notice').classList.remove('hidden');
+            renderWorkingHours();
+            return;
+        }
         
+        settings = data;
         populateForm();
         renderWorkingHours();
         loadStats();
     } catch (error) {
         console.error('Error:', error);
-        showToast('שגיאה בטעינת ההגדרות', 'error');
+        // Show setup mode on any error
+        isNewBusiness = true;
+        document.getElementById('setup-notice').classList.remove('hidden');
+        renderWorkingHours();
     }
 }
 
@@ -344,25 +396,25 @@ async function loadStats() {
     try {
         const db = getSupabase();
         
-        const { count: convCount } = await db
-            .from('conversations')
-            .select('*', { count: 'exact', head: true })
-            .eq('business_id', BUSINESS_ID);
+        // Try to load stats, ignore errors if tables don't exist
+        let convCount = 0, answeredCount = 0, knowledgeCount = 0;
         
-        const { count: answeredCount } = await db
-            .from('conversations')
-            .select('*', { count: 'exact', head: true })
-            .eq('business_id', BUSINESS_ID)
-            .eq('response_type', 'answered');
+        try {
+            const convResult = await db.from('conversations').select('*', { count: 'exact', head: true }).eq('business_id', BUSINESS_ID);
+            convCount = convResult.count || 0;
+            
+            const answeredResult = await db.from('conversations').select('*', { count: 'exact', head: true }).eq('business_id', BUSINESS_ID).eq('response_type', 'answered');
+            answeredCount = answeredResult.count || 0;
+        } catch (e) { /* ignore */ }
         
-        const { count: knowledgeCount } = await db
-            .from('knowledge_base')
-            .select('*', { count: 'exact', head: true })
-            .eq('business_id', BUSINESS_ID);
+        try {
+            const knowledgeResult = await db.from('knowledge_base').select('*', { count: 'exact', head: true }).eq('business_id', BUSINESS_ID);
+            knowledgeCount = knowledgeResult.count || 0;
+        } catch (e) { /* ignore */ }
         
-        document.getElementById('stat-conversations').textContent = convCount || 0;
+        document.getElementById('stat-conversations').textContent = convCount;
         document.getElementById('stat-answer-rate').textContent = convCount > 0 ? Math.round((answeredCount / convCount) * 100) + '%' : '0%';
-        document.getElementById('stat-knowledge').textContent = knowledgeCount || 0;
+        document.getElementById('stat-knowledge').textContent = knowledgeCount;
     } catch (error) {
         console.error('Error loading stats:', error);
     }
@@ -370,7 +422,6 @@ async function loadStats() {
 
 function markChanged() {
     hasChanges = true;
-    document.getElementById('save-indicator').classList.remove('hidden');
 }
 
 document.querySelectorAll('input, textarea, select').forEach(el => {
@@ -393,6 +444,7 @@ async function saveSettings() {
     });
     
     const updatedSettings = {
+        id: BUSINESS_ID,
         business_name: document.getElementById('business-name').value,
         owner_name: document.getElementById('owner-name').value,
         email: document.getElementById('email').value,
@@ -407,17 +459,30 @@ async function saveSettings() {
     
     try {
         const db = getSupabase();
-        const { error } = await db
-            .from('businesses')
-            .update(updatedSettings)
-            .eq('id', BUSINESS_ID);
+        let error;
         
-        if (error) throw error;
+        if (isNewBusiness) {
+            // Try to insert new business
+            const result = await db.from('businesses').insert([updatedSettings]);
+            error = result.error;
+            if (!error) {
+                isNewBusiness = false;
+                document.getElementById('setup-notice').classList.add('hidden');
+            }
+        } else {
+            // Update existing
+            const result = await db.from('businesses').update(updatedSettings).eq('id', BUSINESS_ID);
+            error = result.error;
+        }
+        
+        if (error) {
+            console.error('Save error:', error);
+            showToast('טבלת businesses לא קיימת. צריך ליצור אותה ב-Supabase.', 'error');
+            return;
+        }
         
         hasChanges = false;
-        document.getElementById('save-indicator').classList.add('hidden');
         showToast('ההגדרות נשמרו בהצלחה! ✓');
-        
         settings = { ...settings, ...updatedSettings };
     } catch (error) {
         console.error('Error:', error);
